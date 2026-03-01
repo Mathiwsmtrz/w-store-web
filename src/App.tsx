@@ -5,19 +5,15 @@ import { SiteHeader } from './components/site-header'
 import { SidebarInset, SidebarProvider } from './components/ui/sidebar'
 import { CheckoutPage } from './pages/CheckoutPage'
 import { HomePage } from './pages/HomePage'
+import { ProductDetailPage } from './pages/ProductDetailPage'
 import { TrackingPage } from './pages/TrackingPage.tsx'
+import { getDocumentTitle } from './lib/page-meta'
 
 function PageTitle() {
   const { pathname } = useLocation()
 
   useEffect(() => {
-    const titles: Record<string, string> = {
-      '/': 'Store Web - Home',
-      '/checkout': 'Store Web - Checkout',
-      '/tracking': 'Store Web - Tracking',
-    }
-
-    document.title = titles[pathname] ?? 'Store Web'
+    document.title = getDocumentTitle(pathname)
   }, [pathname])
 
   return null
@@ -41,6 +37,7 @@ function App() {
           <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">
             <Routes>
               <Route path="/" element={<HomePage />} />
+              <Route path="/product/:slug" element={<ProductDetailPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/tracking" element={<TrackingPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />

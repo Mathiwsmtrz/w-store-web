@@ -8,6 +8,17 @@ Includes:
 - shadcn/ui dashboard-style layout.
 - Initial routes: `/`, `/checkout`, and `/tracking`.
 
+## Environment variables
+
+Create a `.env` file in `store-web` based on `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+Required variables:
+- `VITE_API_BASE_URL`: Base URL of the backend API (example: `http://localhost:80`).
+
 ## Basic commands
 
 ```bash
