@@ -3,6 +3,7 @@
 Frontend built with React + TypeScript + Vite.
 
 Includes:
+
 - Tailwind CSS for styling.
 - React Router for SPA navigation.
 - shadcn/ui dashboard-style layout.
@@ -17,6 +18,7 @@ cp .env.example .env
 ```
 
 Required variables:
+
 - `VITE_API_BASE_URL`: Base URL of the backend API (example: `http://localhost:80`).
 
 ## Basic commands
@@ -36,4 +38,14 @@ npm run preview
 
 # Run linter
 npm run lint
+
+# Run tests
+npm run test
+
+# Run tests with coverage report
+npm run test:cov
 ```
+
+## Test Results
+
+See [TEST_RESULTS.md](./TEST_RESULTS.md) for the latest test coverage report.
