@@ -371,9 +371,9 @@ export function CheckoutPage() {
             </p>
           ) : null}
           {paymentInfo.method === 'WOMPI' ? (
-            <p className="mt-2 text-xs text-muted-foreground">Wompi status: {wompi.status}</p>
+            <p className="mt-2 text-xs text-muted-foreground">Wompi status: {wompi?.status}</p>
           ) : null}
-          {paymentInfo.method === 'WOMPI' && wompi.error ? (
+          {paymentInfo.method === 'WOMPI' && wompi?.error ? (
             <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               {wompi.error}
             </p>
