@@ -1,0 +1,55 @@
+/** @type {import('jest').Config} */
+module.exports = {
+  testEnvironment: 'jsdom',
+  rootDir: 'src',
+  testMatch: ['**/*.spec.{ts,tsx}', '**/*.test.{ts,tsx}'],
+  moduleNameMapper: {
+    '^@/config/env$': '<rootDir>/__mocks__/config/env.ts',
+    '^@/(.*)$': '<rootDir>/$1',
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+  },
+  setupFilesAfterEnv: ['<rootDir>/setupTests.cjs'],
+  transform: {
+    '^.+\\.(ts|tsx)$': [
+      'ts-jest',
+      {
+        useESM: false,
+        tsconfig: 'tsconfig.jest.json',
+      },
+    ],
+  },
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
+  collectCoverageFrom: [
+    '**/*.{ts,tsx}',
+    '!**/*.d.ts',
+    '!**/node_modules/**',
+    '!**/index.{ts,tsx}',
+    '!**/config/env.ts',
+    '!**/__mocks__/**',
+    '!**/main.tsx',
+    '!**/App.tsx',
+    '!**/pages/**',
+    '!**/store/store.ts',
+    '!**/app-sidebar.tsx',
+    '!**/global-loading.tsx',
+    '!**/components/ui/sidebar.tsx',
+    '!**/lib/api/http-client.ts',
+    '!**/components/ui/select.tsx',
+    '!**/components/ui/spinner.tsx',
+    '!**/components/ui/tabs.tsx',
+    '!**/components/ui/skeleton.tsx',
+    '!**/components/ui/tooltip.tsx',
+    '!**/components/ui/breadcrumb.tsx',
+    '!**/components/ui/separator.tsx',
+  ],
+  coverageDirectory: '../coverage',
+  coverageThreshold: {
+    global: {
+      branches: 85,
+      functions: 85,
+      lines: 85,
+      statements: 85,
+    },
+  },
+  testPathIgnorePatterns: ['/node_modules/', '/dist/'],
+}

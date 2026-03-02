@@ -1,4 +1,4 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import { createSelector, createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import type { Product } from '@/services/products.service'
 import type { RootState } from '../store'
 
@@ -110,29 +110,37 @@ const cartSlice = createSlice({
 
 export const selectCartState = (state: RootState) => state.cart
 
-export const selectCartItems = (state: RootState): CartItem[] =>
-  Object.values(selectCartState(state).itemsById)
+export const selectCartItems = createSelector(
+  [selectCartState],
+  (cart) => Object.values(cart.itemsById),
+)
 
-export const selectCartTotalItems = (state: RootState): number =>
-  selectCartItems(state).reduce((total, item) => total + item.quantity, 0)
+export const selectCartTotalItems = createSelector(
+  [selectCartItems],
+  (items) => items.reduce((total, item) => total + item.quantity, 0),
+)
 
-export const selectCartSubtotal = (state: RootState): number =>
-  selectCartItems(state).reduce((total, item) => total + Number(item.price) * item.quantity, 0)
+export const selectCartSubtotal = createSelector(
+  [selectCartItems],
+  (items) => items.reduce((total, item) => total + Number(item.price) * item.quantity, 0),
+)
 
-export const selectCartTaxesTotal = (state: RootState): number =>
-  selectCartItems(state).reduce(
-    (total, item) => total + Number(item.productFee) * item.quantity,
-    0,
-  )
+export const selectCartTaxesTotal = createSelector(
+  [selectCartItems],
+  (items) =>
+    items.reduce((total, item) => total + Number(item.productFee) * item.quantity, 0),
+)
 
-export const selectCartShippingTotal = (state: RootState): number =>
-  selectCartItems(state).reduce(
-    (total, item) => total + Number(item.deliveryFee) * item.quantity,
-    0,
-  )
+export const selectCartShippingTotal = createSelector(
+  [selectCartItems],
+  (items) =>
+    items.reduce((total, item) => total + Number(item.deliveryFee) * item.quantity, 0),
+)
 
-export const selectCartGrandTotal = (state: RootState): number =>
-  selectCartSubtotal(state) + selectCartTaxesTotal(state) + selectCartShippingTotal(state)
+export const selectCartGrandTotal = createSelector(
+  [selectCartSubtotal, selectCartTaxesTotal, selectCartShippingTotal],
+  (subtotal, taxes, shipping) => subtotal + taxes + shipping,
+)
 
 export const selectCartItemQuantityByProductId =
   (productId: number | string) =>
