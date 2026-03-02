@@ -23,6 +23,21 @@ export interface CreateOrderResponse {
   code: string
 }
 
+export interface CreateWompiTransactionRequest {
+  orderCode: string
+}
+
+export interface CreateWompiTransactionResponse {
+  orderCode: string
+  reference: string
+  amountInCents: number
+  currency: string
+  publicKey: string
+  acceptanceToken: string | null
+  integritySignature: string | null
+  customerEmail: string
+}
+
 export interface TrackedOrder {
   id: number
   code: string
@@ -59,6 +74,11 @@ export interface TrackedOrder {
   payments: Array<{
     id: number
     paymentRefCode: string
+    provider: string
+    transactionId: string | null
+    currency: string | null
+    amountInCents: number | null
+    statusReason: string | null
     status: 'COMPLETED' | 'CANCEL' | 'PENDING'
   }>
 }
@@ -69,4 +89,10 @@ export async function createOrder(payload: CreateOrderRequest): Promise<CreateOr
 
 export async function getOrderByCode(code: string): Promise<TrackedOrder> {
   return apiClient.get<TrackedOrder>(`/orders/${encodeURIComponent(code)}`)
+}
+
+export async function createWompiTransaction(
+  payload: CreateWompiTransactionRequest,
+): Promise<CreateWompiTransactionResponse> {
+  return apiClient.post<CreateWompiTransactionResponse>('/payments/wompi/transaction', payload)
 }

@@ -11,6 +11,27 @@ function getPaymentMethodLabel(method: TrackedOrder['method']): string {
   return paymentMethodOptions.find((item) => item.value === method)?.label ?? method
 }
 
+function getOrderStatusLabel(status: TrackedOrder['status']): string {
+  const labels: Record<TrackedOrder['status'], string> = {
+    PENDING_PAID: 'Pending payment confirmation',
+    PAID: 'Paid',
+    DELIVERED: 'Delivered',
+    CANCEL: 'Cancelled',
+  }
+
+  return labels[status] ?? status
+}
+
+function getPaymentStatusLabel(status: TrackedOrder['payments'][number]['status']): string {
+  const labels: Record<TrackedOrder['payments'][number]['status'], string> = {
+    PENDING: 'Pending',
+    COMPLETED: 'Approved',
+    CANCEL: 'Rejected or cancelled',
+  }
+
+  return labels[status] ?? status
+}
+
 function getFriendlyTrackingError(error: unknown): string {
   if (!(error instanceof Error)) {
     return 'We could not check your order right now. Please try again.'
@@ -105,13 +126,18 @@ export function TrackingPage() {
             <div className="rounded-lg border p-4">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Order</p>
               <p className="mt-2 text-sm font-medium">Code: {order.code}</p>
-              <p className="text-sm text-muted-foreground">Status: {order.status}</p>
+              <p className="text-sm text-muted-foreground">Status: {getOrderStatusLabel(order.status)}</p>
               <p className="text-sm text-muted-foreground">
                 Date: {new Date(order.date).toLocaleString()}
               </p>
               <p className="text-sm text-muted-foreground">
                 Method: {getPaymentMethodLabel(order.method)}
               </p>
+              {order.method === 'WOMPI' && order.status === 'PENDING_PAID' ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Payment is pending. If your widget flow was interrupted, you can request a new attempt from checkout.
+                </p>
+              ) : null}
             </div>
 
             <div className="rounded-lg border p-4">
@@ -193,7 +219,20 @@ export function TrackingPage() {
                   {order.payments.map((payment) => (
                     <li key={payment.id} className="text-sm">
                       <span className="font-medium">{payment.paymentRefCode}</span>{' '}
-                      <span className="text-muted-foreground">({payment.status})</span>
+                      <span className="text-muted-foreground">
+                        ({payment.provider} - {getPaymentStatusLabel(payment.status)})
+                      </span>
+                      {payment.transactionId ? (
+                        <p className="text-xs text-muted-foreground">Transaction: {payment.transactionId}</p>
+                      ) : null}
+                      {payment.amountInCents !== null && payment.currency ? (
+                        <p className="text-xs text-muted-foreground">
+                          Amount: {payment.amountInCents / 100} {payment.currency}
+                        </p>
+                      ) : null}
+                      {payment.statusReason ? (
+                        <p className="text-xs text-muted-foreground">Reason: {payment.statusReason}</p>
+                      ) : null}
                     </li>
                   ))}
                 </ul>

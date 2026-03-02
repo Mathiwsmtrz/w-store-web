@@ -22,15 +22,20 @@ import {
 } from '@/lib/constants/location.constants'
 import { paymentMethodOptions } from '@/lib/constants/payment.constants'
 import { formatPrice } from '@/lib/utils'
-import { createOrder } from '@/services/orders.service'
+import { WOMPI_PUBLIC_KEY, WOMPI_WIDGET_URL } from '@/config/env'
+import { createOrder, createWompiTransaction } from '@/services/orders.service'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import {
+  clearWompiCheckoutState,
   markOrderCompleted,
   resetCheckout,
   selectCheckoutState,
   setCurrentStep,
   setCustomerInfo,
   setPaymentInfo,
+  setWompiCheckoutError,
+  setWompiCheckoutSession,
+  setWompiCheckoutStatus,
 } from '@/store/slices/checkout.slice'
 import {
   clearCart,
@@ -95,13 +100,78 @@ const paymentInfoSchema = z.object({
 type CustomerInfoFormValues = z.infer<typeof customerInfoSchema>
 type PaymentInfoFormValues = z.infer<typeof paymentInfoSchema>
 
+function loadWompiWidgetScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (window.WidgetCheckout) {
+      resolve()
+      return
+    }
+
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-wompi-widget="true"]')
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(), { once: true })
+      existingScript.addEventListener('error', () => reject(new Error('Could not load Wompi widget script.')), {
+        once: true,
+      })
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = WOMPI_WIDGET_URL
+    script.async = true
+    script.defer = true
+    script.dataset.wompiWidget = 'true'
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('Could not load Wompi widget script.'))
+    document.body.appendChild(script)
+  })
+}
+
+async function openWompiWidget(config: {
+  amountInCents: number
+  currency: string
+  reference: string
+  acceptanceToken: string | null
+  integritySignature: string | null
+  customerEmail: string
+  publicKey: string
+}): Promise<WompiWidgetResult> {
+  await loadWompiWidgetScript()
+
+  if (!window.WidgetCheckout) {
+    throw new Error('Wompi widget is not available in this browser.')
+  }
+
+  const widget = new window.WidgetCheckout({
+    currency: config.currency,
+    amountInCents: config.amountInCents,
+    reference: config.reference,
+    publicKey: config.publicKey,
+    ...(config.acceptanceToken ? { acceptanceToken: config.acceptanceToken } : {}),
+    ...(config.integritySignature
+      ? {
+          signature: {
+            integrity: config.integritySignature,
+          },
+        }
+      : {}),
+    customerData: {
+      email: config.customerEmail,
+    },
+  })
+
+  return new Promise((resolve) => {
+    widget.open((result) => resolve(result))
+  })
+}
+
 export function CheckoutPage() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false)
 
-  const { currentStep, customerInfo, paymentInfo, isOrderCompleted, orderCode } =
+  const { currentStep, customerInfo, paymentInfo, wompi, isOrderCompleted, orderCode } =
     useAppSelector(selectCheckoutState)
   const cartItems = useAppSelector(selectCartItems)
   const totalItems = useAppSelector(selectCartTotalItems)
@@ -213,6 +283,56 @@ export function CheckoutPage() {
         })),
       })
 
+      if (paymentInfo.method === 'WOMPI') {
+        dispatch(markOrderCompleted({ orderCode: response.code }))
+        dispatch(clearCart())
+        dispatch(setWompiCheckoutStatus('PROCESSING'))
+
+        try {
+          const transaction = await createWompiTransaction({
+            orderCode: response.code,
+          })
+
+          const publicKey = WOMPI_PUBLIC_KEY || transaction.publicKey
+          if (!publicKey) {
+            throw new Error('Missing Wompi public key. Define VITE_WOMPI_PUBLIC_KEY in .env.')
+          }
+
+          const widgetResult = await openWompiWidget({
+            amountInCents: transaction.amountInCents,
+            currency: transaction.currency,
+            reference: transaction.reference,
+            acceptanceToken: transaction.acceptanceToken,
+            integritySignature: transaction.integritySignature,
+            customerEmail: transaction.customerEmail,
+            publicKey,
+          })
+
+          dispatch(
+            setWompiCheckoutSession({
+              reference: transaction.reference,
+              transactionId: widgetResult.transaction?.id ?? null,
+            }),
+          )
+
+          if (widgetResult.error?.message) {
+            dispatch(setWompiCheckoutError(widgetResult.error.message))
+          } else {
+            dispatch(setWompiCheckoutError(null))
+          }
+        } catch (wompiError) {
+          dispatch(
+            setWompiCheckoutError(
+              wompiError instanceof Error
+                ? wompiError.message
+                : 'Could not open Wompi checkout. Please use order tracking to retry payment.',
+            ),
+          )
+        }
+
+        return
+      }
+
       dispatch(markOrderCompleted({ orderCode: response.code }))
       dispatch(clearCart())
     } catch (error) {
@@ -223,6 +343,7 @@ export function CheckoutPage() {
   }
 
   const handleContinueShopping = () => {
+    dispatch(clearWompiCheckoutState())
     dispatch(resetCheckout())
     navigate('/')
   }
@@ -232,15 +353,34 @@ export function CheckoutPage() {
       <section className="rounded-xl border bg-card p-6 md:p-10">
         <div className="mx-auto flex max-w-xl flex-col items-center text-center">
           <CheckCircle2 className="size-16 text-green-600" />
-          <h1 className="mt-4 text-2xl font-semibold">Purchase completed successfully</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Your order has been created and it is now pending payment confirmation.
-          </p>
+          <h1 className="mt-4 text-2xl font-semibold">
+            {paymentInfo.method === 'WOMPI' ? 'Order created successfully' : 'Purchase completed successfully'}
+          </h1>
+          {paymentInfo.method === 'WOMPI' ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your order was created. Complete payment with Wompi and wait for webhook confirmation.
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your order has been created and it is now pending payment confirmation.
+            </p>
+          )}
           {orderCode ? (
             <p className="mt-4 text-sm">
               Order code: <span className="font-semibold">{orderCode}</span>
             </p>
           ) : null}
+          {paymentInfo.method === 'WOMPI' ? (
+            <p className="mt-2 text-xs text-muted-foreground">Wompi status: {wompi.status}</p>
+          ) : null}
+          {paymentInfo.method === 'WOMPI' && wompi.error ? (
+            <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              {wompi.error}
+            </p>
+          ) : null}
+          <Button className="mt-3" variant="outline" asChild>
+            <Link to="/tracking">Track order</Link>
+          </Button>
           <Button className="mt-6" onClick={handleContinueShopping}>
             Continue shopping
           </Button>
